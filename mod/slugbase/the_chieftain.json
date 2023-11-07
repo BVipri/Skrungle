@@ -1,0 +1,30 @@
+{
+	"id": "carlcat",
+	"name": "The Chieftain",
+	"description": "carl!!",
+	"features": {
+		"color": "ffffff",
+		"weight": 1.2,
+		"tunnel_speed": 1.2,
+		"climb_speed": 1.2,
+		"walk_speed": 0.8,
+		"throw_skill": 1.25,
+		"loudness": 1.2,
+		"alignments": {
+			"Scavengers": {
+				"like": 100,
+				"locked": true
+			}
+		},
+		"food_min": 2,
+		"food_max": 8,
+		"world_state": "Artificer",
+		"lung_capacity": 0.9,
+		"karma": 0,
+		"karma_cap": 2,
+		"start_room": "SU_A45",
+
+		"select_menu_scene": "Slugcat_Prototype",
+		"select_menu_scene_ascended": "Ghost_Prototype"
+	}
+}

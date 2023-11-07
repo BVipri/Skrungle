@@ -1,0 +1,10 @@
+﻿{
+	"id": "bvipri.carlcat",
+	"name": "CarlCat",
+	"version": "0.1.0",
+	"authors": "bvipri",
+	"description": "Adds The Chieftain (Carlcat), aswell as The Rascal (Skrungle)",
+	"requirements": [ "slime-cubed.slugbase", "improved-input-config" ],
+	"requirements_names": [ "SlugBase", "Improved Input Config" ],
+	"tags": [ "Custom Slugcat" ]
+}
