@@ -3,6 +3,7 @@ using BepInEx;
 using UnityEngine;
 using Smoke;
 using ImprovedInput;
+using DressMySlugcat;
 using static MonoMod.InlineRT.MonoModRule;
 using HUD;
 using RWCustom;
@@ -10,6 +11,8 @@ using UnityEngine.Assertions.Must;
 using JetBrains.Annotations;
 using System.Configuration;
 using System.Runtime.ConstrainedExecution;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace SlugTemplate
 {
@@ -28,6 +31,7 @@ namespace SlugTemplate
         private RoofTopView.DustpuffSpawner.DustPuff currentDustPuff;
         private ScavengerAbstractAI.ScavengerSquad squad;
         public static readonly PlayerKeybind Ability = PlayerKeybind.Register("bvipri.carlcat", "CarlCat", "ability", KeyCode.LeftControl, KeyCode.JoystickButton3);
+        public static bool IsPostInit = false;
         
 
         // Add hooks
@@ -44,6 +48,82 @@ namespace SlugTemplate
             On.Player.NewRoom += Player_NewRoom;
             On.ScavengerAI.RecognizeCreatureAcceptingGift += ScavengerAI_RecognizeCreatureAcceptingGift;
             On.RoofTopView.DustpuffSpawner.DustPuff.ApplyPalette += DustPuff_ApplyPalette;
+            On.RainWorld.PostModsInit += RainWorld_PostModsInit;
+        }
+
+        private void RainWorld_PostModsInit(On.RainWorld.orig_PostModsInit orig, RainWorld self)
+        {
+            orig.Invoke(self);
+            try
+            {
+                bool isPostInit = Plugin.IsPostInit;
+                if (!isPostInit)
+                {
+                    Plugin.IsPostInit = true;
+                    bool flag = Enumerable.Any<ModManager.Mod>(ModManager.ActiveMods, (ModManager.Mod mod) => mod.id == "dressmyslugcat");
+                    if (flag)
+                    {
+                        this.SetupDMSSprites();
+                    }
+                    Debug.Log("Plugin dressmyslugcat.carlcat is loaded!");
+                }
+            }
+            catch (Exception exception)
+            {
+                Debug.LogException(exception);
+            }
+        }
+
+        public void SetupDMSSprites()
+        {
+            string spriteSheetID = "carlsprite";
+            for (int i = 0; i < 4; i++)
+            {
+                SpriteDefinitions.AddSlugcatDefault(new Customization
+                {
+                    Slugcat = "carlcat",
+                    PlayerNumber = i,
+                    CustomSprites = new List<CustomSprite>
+                    {
+                        new CustomSprite
+                        {
+                            Sprite = "HEAD",
+                            SpriteSheetID = spriteSheetID
+                        },
+                        new CustomSprite
+                        {
+                            Sprite = "BODY",
+                            SpriteSheetID = spriteSheetID
+                        },
+                        new CustomSprite
+                        {
+                            Sprite = "ARMS",
+                            SpriteSheetID = spriteSheetID
+                        },
+                        new CustomSprite
+                        {
+                            Sprite = "HIPS",
+                            SpriteSheetID = spriteSheetID
+                        },
+                        new CustomSprite
+                        {
+                            Sprite = "TAIL",
+                            SpriteSheetID = spriteSheetID
+                        },
+                        new CustomSprite
+                        {
+                            Sprite = "FACE",
+                            SpriteSheetID = spriteSheetID,
+                            ColorHex = "#ffffff"
+                        },
+                        new CustomSprite
+                        {
+                            Sprite = "LEGS",
+                            SpriteSheetID = spriteSheetID
+                        }
+                    }
+                });
+            }
         }
 
         private void Player_NewRoom(On.Player.orig_NewRoom orig, Player self, Room newRoom)
@@ -202,10 +282,8 @@ namespace SlugTemplate
                 {
                     for (int i = 0; i<squad.members.Count; i++)
                     {
-                        var inRoom = 0;
                         if (squad.members[i].Room == self.room.abstractRoom)
                         {
-                            inRoom += 1;
                             var pos1 = self.mainBodyChunk.pos;
                             var pos2 = squad.members[i].realizedCreature.mainBodyChunk.pos;
                             if ((pos1 - pos2).magnitude > 30)
@@ -213,7 +291,6 @@ namespace SlugTemplate
                                 squad.members[i].abstractAI.SetDestination(self.coord);
                             }
                         }
-                        (self.abstractCreature.world.game.session as StoryGameSession).saveState.deathPersistentSaveData.karma = inRoom;
                     }
                 }
 

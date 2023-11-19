@@ -20,6 +20,9 @@
     </ItemGroup>
     
     <ItemGroup>
+      <Reference Include="DressMySlugcat">
+        <HintPath>..\..\..\DressMySlugcat\DressMySlugcat\plugins\DressMySlugcat.dll</HintPath>
+      </Reference>
       <Reference Include="ImprovedInput">
         <HintPath>..\..\..\ImprovedInput.dll</HintPath>
       </Reference>

@@ -1,0 +1,20 @@
+{"frames": {
+
+"BodyA.png":
+{
+	"frame": {"x":0,"y":0,"w":18,"h":21},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":18,"h":21},
+	"sourceSize": {"w":18,"h":21}
+}},
+"meta": {
+	"app": "https://www.codeandweb.com/texturepacker",
+	"version": "1.0",
+	"image": "carlBody.png",
+	"format": "RGBA8888",
+	"size": {"w":18,"h":21},
+	"scale": "1",
+	"smartupdate": "$TexturePacker:SmartUpdate:d2bf6e20f6cbd447ae0f1eec08410e0d:ff7d5b9137f6d63912a9b728006993dd:7e8bfc6d4bbddf953c3bee6de7992321$"
+}
+}
