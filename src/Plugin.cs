@@ -13,6 +13,7 @@ using System.Configuration;
 using System.Runtime.ConstrainedExecution;
 using System.Linq;
 using System.Collections.Generic;
+using System.Runtime.Remoting.Messaging;
 
 namespace SlugTemplate
 {
@@ -26,7 +27,6 @@ namespace SlugTemplate
         private int searchtimer = 0;
         private int searchcooldown = 0;
         private int invhold = 0;
-        private int followC = 0;
         private RoomCamera camera;
         private RoofTopView.DustpuffSpawner.DustPuff currentDustPuff;
         private ScavengerAbstractAI.ScavengerSquad squad;
@@ -49,6 +49,30 @@ namespace SlugTemplate
             On.ScavengerAI.RecognizeCreatureAcceptingGift += ScavengerAI_RecognizeCreatureAcceptingGift;
             On.RoofTopView.DustpuffSpawner.DustPuff.ApplyPalette += DustPuff_ApplyPalette;
             On.RainWorld.PostModsInit += RainWorld_PostModsInit;
+            On.ScavengerAI.LikeOfPlayer += ScavengerAI_LikeOfPlayer;
+            On.ScavengerAI.PlayerRelationship += ScavengerAI_PlayerRelationship;
+        }
+
+        private CreatureTemplate.Relationship ScavengerAI_PlayerRelationship(On.ScavengerAI.orig_PlayerRelationship orig, ScavengerAI self, RelationshipTracker.DynamicRelationship dRelation)
+        {
+            if (player.slugcatStats.name.ToString() == "carlcat")
+            {
+                return new CreatureTemplate.Relationship(CreatureTemplate.Relationship.Type.Pack, 1f);
+            } else
+            {
+                return orig(self, dRelation);
+            }
+        }
+
+        private float ScavengerAI_LikeOfPlayer(On.ScavengerAI.orig_LikeOfPlayer orig, ScavengerAI self, RelationshipTracker.DynamicRelationship dRelation)
+        {
+            if (player.slugcatStats.name.ToString() == "carlcat")
+            {
+                return 1f;
+            } else
+            {
+                return orig(self, dRelation);
+            }
         }
 
         private void RainWorld_PostModsInit(On.RainWorld.orig_PostModsInit orig, RainWorld self)
@@ -132,6 +156,7 @@ namespace SlugTemplate
             if (squad.members.Count > 0)
             {
                 printSquad(squad);
+                squad.CommonMovement(self.room.abstractRoom.index, null, false);
             }
         }
 
@@ -140,7 +165,18 @@ namespace SlugTemplate
             orig(self, subRep, objRep, objIsMe, item);
             if (objIsMe == true && item.abstractPhysicalObject.type == AbstractPhysicalObject.AbstractObjectType.DataPearl)
             {
-                squad.AddMember(self.creature);
+                if (squad.members.Count == 0)
+                {
+                    (self.creature.abstractAI as ScavengerAbstractAI).TryAssembleSquad();
+                    squad = (self.creature.abstractAI as ScavengerAbstractAI).squad;
+                    squad.missionType = ScavengerAbstractAI.ScavengerSquad.MissionID.ProtectCreature;
+                    squad.targetCreature = player.abstractCreature;
+                    player.room.world.scavengersWorldAI.playerAssignedSquads.Add(squad);
+                    player.room.world.scavengersWorldAI.ResetSquadCooldown(1f);
+                } else
+                {
+                    squad.AddMember(self.creature);
+                }
             }
         }
 
@@ -164,14 +200,8 @@ namespace SlugTemplate
                 {
                     return Player.ObjectGrabability.CantGrab;
                 }
-                else
-                {
-                    return orig(self, obj);
-                }
-            } else
-            {
-                return orig(self, obj);
             }
+            return orig(self, obj);
         }
         private void Player_InitiateGraphicsModule(On.Player.orig_InitiateGraphicsModule orig, Player self)
         {
@@ -182,8 +212,6 @@ namespace SlugTemplate
                 self.grasps = new Player.Grasp[6];
                 squad = new ScavengerAbstractAI.ScavengerSquad(player.abstractCreature);
                 squad.members.Clear();
-                squad.missionType = ScavengerAbstractAI.ScavengerSquad.MissionID.ProtectCreature;
-                squad.targetCreature = player.abstractCreature;
             }
         }
 
@@ -277,7 +305,6 @@ namespace SlugTemplate
                 UpdateGrabs(self);
 
                 // friends!
-                followC += 1;
                 if (squad.members.Count > 0)
                 {
                     for (int i = 0; i<squad.members.Count; i++)
