@@ -14,6 +14,7 @@ using System.Runtime.ConstrainedExecution;
 using System.Linq;
 using System.Collections.Generic;
 using System.Runtime.Remoting.Messaging;
+using MoreSlugcats;
 
 namespace SlugTemplate
 {
@@ -27,13 +28,12 @@ namespace SlugTemplate
         private int searchtimer = 0;
         private int searchcooldown = 0;
         private int invhold = 0;
+        private int eattimer = 0;
         private RoomCamera camera;
         private RoofTopView.DustpuffSpawner.DustPuff currentDustPuff;
         private ScavengerAbstractAI.ScavengerSquad squad;
         public static readonly PlayerKeybind Ability = PlayerKeybind.Register("bvipri.carlcat", "CarlCat", "ability", KeyCode.LeftControl, KeyCode.JoystickButton3);
         public static bool IsPostInit = false;
-        
-
         // Add hooks
         public void OnEnable()
         {
@@ -51,30 +51,74 @@ namespace SlugTemplate
             On.RainWorld.PostModsInit += RainWorld_PostModsInit;
             On.ScavengerAI.LikeOfPlayer += ScavengerAI_LikeOfPlayer;
             On.ScavengerAI.PlayerRelationship += ScavengerAI_PlayerRelationship;
+            On.Player.ObjectCountsAsFood += Player_ObjectCountsAsFood;
+            On.SlugcatStats.NourishmentOfObjectEaten += SlugcatStats_NourishmentOfObjectEaten;
+            On.Player.CanBeSwallowed += Player_CanBeSwallowed;
         }
-
+        private bool Player_CanBeSwallowed(On.Player.orig_CanBeSwallowed orig, Player self, PhysicalObject testObj)
+        {
+            if (self.slugcatStats.name.ToString() == "carlcat")
+            {
+                return false;
+            }
+            return orig(self, testObj);
+        }
+        private int SlugcatStats_NourishmentOfObjectEaten(On.SlugcatStats.orig_NourishmentOfObjectEaten orig, SlugcatStats.Name slugcatIndex, IPlayerEdible eatenobject)
+        {
+            if (slugcatIndex.ToString() == "carlcat")
+            {
+                if (eatenobject is DangleFruit || eatenobject is SlimeMold || eatenobject is EggBugEgg)
+                {
+                    return 2;
+                } else if (eatenobject is BubbleGrass || eatenobject is NeedleEgg)
+                {
+                    return 8;
+                } else if (eatenobject is PuffBall || eatenobject is Mushroom || eatenobject is GlowWeed || eatenobject is DandelionPeach || eatenobject is FlyLure)
+                {
+                    return 4;
+                } else
+                {
+                    return 0;
+                }
+            }
+            return orig(slugcatIndex, eatenobject);
+        }
+        private bool Player_ObjectCountsAsFood(On.Player.orig_ObjectCountsAsFood orig, Player self, PhysicalObject obj)
+        {
+            if (self.slugcatStats.name.ToString() == "carlcat")
+            {
+                if (obj is DangleFruit ||
+                    obj is BubbleGrass ||
+                    obj is PuffBall ||
+                    obj is Mushroom ||
+                    obj is SlimeMold ||
+                    obj is GlowWeed ||
+                    obj is DandelionPeach ||
+                    obj is FlyLure ||
+                    obj is NeedleEgg ||
+                    obj is EggBugEgg)
+                {
+                    return true;
+                }
+            }
+            return orig(self, obj);
+        }
         private CreatureTemplate.Relationship ScavengerAI_PlayerRelationship(On.ScavengerAI.orig_PlayerRelationship orig, ScavengerAI self, RelationshipTracker.DynamicRelationship dRelation)
         {
             if (player.slugcatStats.name.ToString() == "carlcat")
             {
                 return new CreatureTemplate.Relationship(CreatureTemplate.Relationship.Type.Pack, 1f);
-            } else
-            {
-                return orig(self, dRelation);
             }
+            return orig(self, dRelation);
         }
-
         private float ScavengerAI_LikeOfPlayer(On.ScavengerAI.orig_LikeOfPlayer orig, ScavengerAI self, RelationshipTracker.DynamicRelationship dRelation)
         {
             if (player.slugcatStats.name.ToString() == "carlcat")
             {
                 return 1f;
-            } else
-            {
-                return orig(self, dRelation);
             }
+            return orig(self, dRelation);
         }
-
         private void RainWorld_PostModsInit(On.RainWorld.orig_PostModsInit orig, RainWorld self)
         {
             orig.Invoke(self);
@@ -97,7 +141,6 @@ namespace SlugTemplate
                 Debug.LogException(exception);
             }
         }
-
         public void SetupDMSSprites()
         {
             string spriteSheetID = "carlsprite";
@@ -316,6 +359,34 @@ namespace SlugTemplate
                             if ((pos1 - pos2).magnitude > 30)
                             {
                                 squad.members[i].abstractAI.SetDestination(self.coord);
+                            }
+                        }
+                    }
+                }
+
+                // separate code for eating stuff because i cant put IPlayerEdible on existing objects without exploding :)
+                if (self.input[0].pckp == true)
+                {
+                    for (int i = 0; i < 2; i++)
+                    {
+                        var grab = self.grasps[i];
+                        if (grab != null && (grab.grabbed is NeedleEgg || grab.grabbed is BubbleGrass || grab.grabbed is FlyLure || grab.grabbed is PuffBall))
+                        {
+                            eattimer += 1;
+                            if ((eattimer > 30 && eattimer < 34) || (eattimer > 40 && eattimer < 44) || (eattimer > 50 && eattimer < 54))
+                            {
+                                (self.graphicsModule as PlayerGraphics).hands[i].absoluteHuntPos = self.bodyChunks[0].pos;
+                                (self.graphicsModule as PlayerGraphics).hands[i].reachingForObject = true;
+                            }
+                            if (eattimer > 60)
+                            {
+                                eattimer = 0;
+                                var obj = grab.grabbed;
+                                int points = obj is NeedleEgg ? 2 : obj is BubbleGrass ? 2 : obj is FlyLure ? 1 : obj is PuffBall ? 1 : 0;
+                                self.ReleaseGrasp(i);
+                                obj.room.RemoveObject(obj);
+                                obj.Destroy();
+                                self.AddFood(points);
                             }
                         }
                     }
