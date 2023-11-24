@@ -15,6 +15,9 @@ using System.Linq;
 using System.Collections.Generic;
 using System.Runtime.Remoting.Messaging;
 using MoreSlugcats;
+using SlugBase.SaveData;
+using SlugBase.Features;
+using Carlcat;
 
 namespace SlugTemplate
 {
@@ -22,7 +25,6 @@ namespace SlugTemplate
     class Plugin : BaseUnityPlugin
     {
         private const string MOD_ID = "bvipri.carlcat";
-        private RainWorld rainworld = new RainWorld();
         private Player player;
         private int cloudcooldown = 0;
         private int searchtimer = 0;
@@ -32,6 +34,8 @@ namespace SlugTemplate
         private RoomCamera camera;
         private RoofTopView.DustpuffSpawner.DustPuff currentDustPuff;
         private ScavengerAbstractAI.ScavengerSquad squad;
+        private Scavenger[] squadMembers;
+        private SlugBaseSaveData data;
         public static readonly PlayerKeybind Ability = PlayerKeybind.Register("bvipri.carlcat", "CarlCat", "ability", KeyCode.LeftControl, KeyCode.JoystickButton3);
         public static bool IsPostInit = false;
         // Add hooks
@@ -54,7 +58,16 @@ namespace SlugTemplate
             On.Player.ObjectCountsAsFood += Player_ObjectCountsAsFood;
             On.SlugcatStats.NourishmentOfObjectEaten += SlugcatStats_NourishmentOfObjectEaten;
             On.Player.CanBeSwallowed += Player_CanBeSwallowed;
+            On.ShelterDoor.Close += ShelterDoor_Close;
         }
+
+        private void ShelterDoor_Close(On.ShelterDoor.orig_Close orig, ShelterDoor self)
+        {
+            orig(self);
+            if (self.Broken) return;
+            
+        }
+
         private bool Player_CanBeSwallowed(On.Player.orig_CanBeSwallowed orig, Player self, PhysicalObject testObj)
         {
             if (self.slugcatStats.name.ToString() == "carlcat")
@@ -261,8 +274,16 @@ namespace SlugTemplate
             if (self.slugcatStats.name.ToString() == "carlcat")
             {
                 self.grasps = new Player.Grasp[5];
+                data = SaveDataExtension.GetSlugBaseData(self.room.game.GetStorySession.saveState.miscWorldSaveData);
                 squad = new ScavengerAbstractAI.ScavengerSquad(player.abstractCreature);
                 squad.members.Clear();
+                if (data.TryGet<Scavenger[]>("Scavengers", out squadMembers) == true)
+                {
+                    for (int i=0; i<squadMembers.Length; i++)
+                    {
+                        squad.AddMember(squadMembers[i].abstractCreature);
+                    }
+                }
             }
         }
 
