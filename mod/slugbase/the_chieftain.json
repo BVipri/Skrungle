@@ -23,7 +23,7 @@
 		"karma": 0,
 		"karma_cap": 2,
 		"start_room": "SU_A45",
-
+		"back_spear":  true,
 		"select_menu_scene": "Slugcat_Prototype",
 		"select_menu_scene_ascended": "Ghost_Prototype"
 	}
