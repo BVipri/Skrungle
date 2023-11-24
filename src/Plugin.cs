@@ -13,6 +13,8 @@ using System.Configuration;
 using System.Runtime.ConstrainedExecution;
 using System.Linq;
 using System.Collections.Generic;
+using System.Runtime.Remoting.Messaging;
+using MoreSlugcats;
 
 namespace SlugTemplate
 {
@@ -26,14 +28,12 @@ namespace SlugTemplate
         private int searchtimer = 0;
         private int searchcooldown = 0;
         private int invhold = 0;
-        private int followC = 0;
+        private int eattimer = 0;
         private RoomCamera camera;
         private RoofTopView.DustpuffSpawner.DustPuff currentDustPuff;
         private ScavengerAbstractAI.ScavengerSquad squad;
         public static readonly PlayerKeybind Ability = PlayerKeybind.Register("bvipri.carlcat", "CarlCat", "ability", KeyCode.LeftControl, KeyCode.JoystickButton3);
         public static bool IsPostInit = false;
-        
-
         // Add hooks
         public void OnEnable()
         {
@@ -49,8 +49,79 @@ namespace SlugTemplate
             On.ScavengerAI.RecognizeCreatureAcceptingGift += ScavengerAI_RecognizeCreatureAcceptingGift;
             On.RoofTopView.DustpuffSpawner.DustPuff.ApplyPalette += DustPuff_ApplyPalette;
             On.RainWorld.PostModsInit += RainWorld_PostModsInit;
+            On.ScavengerAI.LikeOfPlayer += ScavengerAI_LikeOfPlayer;
+            On.ScavengerAI.PlayerRelationship += ScavengerAI_PlayerRelationship;
+            On.Player.ObjectCountsAsFood += Player_ObjectCountsAsFood;
+            On.SlugcatStats.NourishmentOfObjectEaten += SlugcatStats_NourishmentOfObjectEaten;
+            On.Player.CanBeSwallowed += Player_CanBeSwallowed;
         }
-
+        private bool Player_CanBeSwallowed(On.Player.orig_CanBeSwallowed orig, Player self, PhysicalObject testObj)
+        {
+            if (self.slugcatStats.name.ToString() == "carlcat")
+            {
+                return false;
+            }
+            return orig(self, testObj);
+        }
+        private int SlugcatStats_NourishmentOfObjectEaten(On.SlugcatStats.orig_NourishmentOfObjectEaten orig, SlugcatStats.Name slugcatIndex, IPlayerEdible eatenobject)
+        {
+            if (slugcatIndex.ToString() == "carlcat")
+            {
+                if (eatenobject is DangleFruit || eatenobject is SlimeMold || eatenobject is EggBugEgg)
+                {
+                    return 2;
+                }
+                else if (eatenobject is BubbleGrass || eatenobject is NeedleEgg)
+                {
+                    return 8;
+                }
+                else if (eatenobject is PuffBall || eatenobject is Mushroom || eatenobject is GlowWeed || eatenobject is DandelionPeach || eatenobject is FlyLure)
+                {
+                    return 4;
+                }
+                else
+                {
+                    return 0;
+                }
+            }
+            return orig(slugcatIndex, eatenobject);
+        }
+        private bool Player_ObjectCountsAsFood(On.Player.orig_ObjectCountsAsFood orig, Player self, PhysicalObject obj)
+        {
+            if (self.slugcatStats.name.ToString() == "carlcat")
+            {
+                if (obj is DangleFruit ||
+                    obj is BubbleGrass ||
+                    obj is PuffBall ||
+                    obj is Mushroom ||
+                    obj is SlimeMold ||
+                    obj is GlowWeed ||
+                    obj is DandelionPeach ||
+                    obj is FlyLure ||
+                    obj is NeedleEgg ||
+                    obj is EggBugEgg)
+                {
+                    return true;
+                }
+            }
+            return orig(self, obj);
+        }
+        private CreatureTemplate.Relationship ScavengerAI_PlayerRelationship(On.ScavengerAI.orig_PlayerRelationship orig, ScavengerAI self, RelationshipTracker.DynamicRelationship dRelation)
+        {
+            if (player.slugcatStats.name.ToString() == "carlcat")
+            {
+                return new CreatureTemplate.Relationship(CreatureTemplate.Relationship.Type.Pack, 1f);
+            }
+            return orig(self, dRelation);
+        }
+        private float ScavengerAI_LikeOfPlayer(On.ScavengerAI.orig_LikeOfPlayer orig, ScavengerAI self, RelationshipTracker.DynamicRelationship dRelation)
+        {
+            if (player.slugcatStats.name.ToString() == "carlcat")
+            {
+                return 1f;
+            }
+            return orig(self, dRelation);
+        }
         private void RainWorld_PostModsInit(On.RainWorld.orig_PostModsInit orig, RainWorld self)
         {
             orig.Invoke(self);
@@ -73,7 +144,6 @@ namespace SlugTemplate
                 Debug.LogException(exception);
             }
         }
-
         public void SetupDMSSprites()
         {
             string spriteSheetID = "carlsprite";
@@ -125,22 +195,39 @@ namespace SlugTemplate
                 });
             }
         }
-
         private void Player_NewRoom(On.Player.orig_NewRoom orig, Player self, Room newRoom)
         {
             orig(self, newRoom);
             if (squad.members.Count > 0)
             {
                 printSquad(squad);
+                if (newRoom.world.region.name.ToString() == squad.members[0].Room.world.region.name.ToString())
+                {
+                    squad.CommonMovement(self.room.abstractRoom.index, null, false);
+                } else
+                {
+                    squad.Dissolve();
+                }
             }
         }
-
         private void ScavengerAI_RecognizeCreatureAcceptingGift(On.ScavengerAI.orig_RecognizeCreatureAcceptingGift orig, ScavengerAI self, Tracker.CreatureRepresentation subRep, Tracker.CreatureRepresentation objRep, bool objIsMe, PhysicalObject item)
         {
             orig(self, subRep, objRep, objIsMe, item);
             if (objIsMe == true && item.abstractPhysicalObject.type == AbstractPhysicalObject.AbstractObjectType.DataPearl)
             {
-                squad.AddMember(self.creature);
+                if (squad.members.Count == 0)
+                {
+                    (self.creature.abstractAI as ScavengerAbstractAI).TryAssembleSquad();
+                    squad = (self.creature.abstractAI as ScavengerAbstractAI).squad;
+                    squad.missionType = ScavengerAbstractAI.ScavengerSquad.MissionID.ProtectCreature;
+                    squad.targetCreature = player.abstractCreature;
+                    player.room.world.scavengersWorldAI.playerAssignedSquads.Add(squad);
+                    player.room.world.scavengersWorldAI.ResetSquadCooldown(1f);
+                }
+                else
+                {
+                    squad.AddMember(self.creature);
+                }
             }
         }
 
@@ -159,19 +246,13 @@ namespace SlugTemplate
         {
             if (self.slugcatStats.name.ToString() == "carlcat")
             {
-                var isObjectInInventory = (self.grasps[2] != null && self.grasps[2].grabbed == obj) ? true : (self.grasps[3] != null && self.grasps[3].grabbed == obj) ? true : (self.grasps[4] != null && self.grasps[4].grabbed == obj) ? true : (self.grasps[5] != null && self.grasps[5].grabbed == obj) ? true : false;
+                var isObjectInInventory = (self.grasps[2] != null && self.grasps[2].grabbed == obj) ? true : (self.grasps[3] != null && self.grasps[3].grabbed == obj) ? true : (self.grasps[4] != null && self.grasps[4].grabbed == obj) ? true : false;
                 if (isObjectInInventory == true)
                 {
                     return Player.ObjectGrabability.CantGrab;
                 }
-                else
-                {
-                    return orig(self, obj);
-                }
-            } else
-            {
-                return orig(self, obj);
             }
+            return orig(self, obj);
         }
         private void Player_InitiateGraphicsModule(On.Player.orig_InitiateGraphicsModule orig, Player self)
         {
@@ -179,18 +260,16 @@ namespace SlugTemplate
             player = self;
             if (self.slugcatStats.name.ToString() == "carlcat")
             {
-                self.grasps = new Player.Grasp[6];
+                self.grasps = new Player.Grasp[5];
                 squad = new ScavengerAbstractAI.ScavengerSquad(player.abstractCreature);
                 squad.members.Clear();
-                squad.missionType = ScavengerAbstractAI.ScavengerSquad.MissionID.ProtectCreature;
-                squad.targetCreature = player.abstractCreature;
             }
         }
 
         private void printSquad(ScavengerAbstractAI.ScavengerSquad squad)
         {
             String members = "";
-            for (int i = 0; i<squad.members.Count; i++)
+            for (int i = 0; i < squad.members.Count; i++)
             {
                 members = members + squad.members[i].creatureTemplate.type.ToString() + ",";
             }
@@ -217,7 +296,7 @@ namespace SlugTemplate
                     {
                         var obj = self.grasps[i].grabbed;
                         obj.firstChunk.vel = new Vector2(0f, 0f);
-                        obj.firstChunk.pos = self.bodyChunks[1].pos + new Vector2(-6f + 4f * (i - 2), 0f);
+                        obj.firstChunk.pos = self.bodyChunks[1].pos + new Vector2(-6f * (i - 3), 0f);
                     }
                 }
             }
@@ -272,15 +351,15 @@ namespace SlugTemplate
                         self.mainBodyChunk.vel = new Vector2(vel.x * velMultX, vel.y * velMultY);
                     }
                 }
-            } else if (self.slugcatStats.name.ToString() == "carlcat") // is carlcat
+            }
+            else if (self.slugcatStats.name.ToString() == "carlcat") // is carlcat
             {
                 UpdateGrabs(self);
 
                 // friends!
-                followC += 1;
                 if (squad.members.Count > 0)
                 {
-                    for (int i = 0; i<squad.members.Count; i++)
+                    for (int i = 0; i < squad.members.Count; i++)
                     {
                         if (squad.members[i].Room == self.room.abstractRoom)
                         {
@@ -289,6 +368,34 @@ namespace SlugTemplate
                             if ((pos1 - pos2).magnitude > 30)
                             {
                                 squad.members[i].abstractAI.SetDestination(self.coord);
+                            }
+                        }
+                    }
+                }
+
+                // separate code for eating stuff because i cant put IPlayerEdible on existing objects without exploding :)
+                if (self.input[0].pckp == true)
+                {
+                    for (int i = 0; i < 2; i++)
+                    {
+                        var grab = self.grasps[i];
+                        if (grab != null && (grab.grabbed is NeedleEgg || grab.grabbed is BubbleGrass || grab.grabbed is FlyLure || grab.grabbed is PuffBall))
+                        {
+                            eattimer += 1;
+                            if ((eattimer > 30 && eattimer < 34) || (eattimer > 40 && eattimer < 44) || (eattimer > 50 && eattimer < 54))
+                            {
+                                (self.graphicsModule as PlayerGraphics).hands[i].absoluteHuntPos = self.bodyChunks[0].pos;
+                                (self.graphicsModule as PlayerGraphics).hands[i].reachingForObject = true;
+                            }
+                            if (eattimer > 60)
+                            {
+                                eattimer = 0;
+                                var obj = grab.grabbed;
+                                int points = obj is NeedleEgg ? 2 : obj is BubbleGrass ? 2 : obj is FlyLure ? 1 : obj is PuffBall ? 1 : 0;
+                                self.ReleaseGrasp(i);
+                                obj.room.RemoveObject(obj);
+                                obj.Destroy();
+                                self.AddFood(points);
                             }
                         }
                     }
@@ -314,7 +421,7 @@ namespace SlugTemplate
                         (self.graphicsModule as PlayerGraphics).hands[1].reachingForObject = true;
 
                         // visual
-                        RoofTopView.DustpuffSpawner.DustPuff dustPuff = new RoofTopView.DustpuffSpawner.DustPuff(new Vector2(pos.x + 10 * self.ThrowDirection,pos.y - 5), 0.7f);
+                        RoofTopView.DustpuffSpawner.DustPuff dustPuff = new RoofTopView.DustpuffSpawner.DustPuff(new Vector2(pos.x + 10 * self.ThrowDirection, pos.y - 5), 0.7f);
                         currentDustPuff = dustPuff;
                         room.AddObject(dustPuff);
 
@@ -322,7 +429,8 @@ namespace SlugTemplate
                         if (rdm < 0.1)
                         {
                             room.PlaySound(SoundID.Rock_Hit_Wall, pos, 0.8f, 0.5f + UnityEngine.Random.value);
-                        } else
+                        }
+                        else
                         {
                             room.PlaySound(SoundID.Rock_Hit_Wall, pos, 0.3f, 0.5f + UnityEngine.Random.value);
                         }
@@ -333,7 +441,7 @@ namespace SlugTemplate
                         searchcooldown = 200;
                         searchtimer = 0;
                         bool spear = false;
-                        for (int i=0; i<self.grasps.Length; i++) // check if theyre holding a spear
+                        for (int i = 0; i < self.grasps.Length; i++) // check if theyre holding a spear
                         {
                             if (self.grasps[i] != null)
                             {
@@ -392,7 +500,8 @@ namespace SlugTemplate
                                     obj.RealizeInRoom();
                                     self.SlugcatGrab(obj.realizedObject, self.FreeHand());
                                     room.PlaySound(SoundID.Slugcat_Pick_Up_Bomb, pos, 2f, 1f);
-                                } else // add explosive spear
+                                }
+                                else // add explosive spear
                                 {
                                     self.room.world.game.GetNewID();
                                     AbstractSpear obj = new AbstractSpear(self.room.world, null, self.coord, self.room.world.game.GetNewID(), true);
@@ -404,7 +513,9 @@ namespace SlugTemplate
                             }
                         }
                     }
-                } else {
+                }
+                else
+                {
                     searchcooldown -= 1;
                     searchtimer = 0;
                 }
@@ -414,12 +525,12 @@ namespace SlugTemplate
                     invhold += 1;
                     if (self.input[0].y == 1)
                     {
-                        var usedslot = self.grasps[5] != null ? 5 : self.grasps[4] != null ? 4 : self.grasps[3] != null ? 3 : self.grasps[2] != null ? 2 : -1;
+                        var usedslot = self.grasps[4] != null ? 4 : self.grasps[3] != null ? 3 : self.grasps[2] != null ? 2 : -1;
                         var freehand = self.grasps[0] == null ? 0 : self.grasps[1] == null ? 1 : -1;
                         var pos = self.bodyChunks[1].pos;
                         if (freehand != -1 && usedslot != -1)
                         {
-                            (self.graphicsModule as PlayerGraphics).hands[freehand].absoluteHuntPos = new Vector2(pos.x - 6f + 4f * (usedslot - 2), pos.y);
+                            (self.graphicsModule as PlayerGraphics).hands[freehand].absoluteHuntPos = new Vector2(pos.x - 6f * (usedslot - 3), pos.y);
                             (self.graphicsModule as PlayerGraphics).hands[freehand].reachingForObject = true;
                             if (invhold > 10)
                             {
@@ -430,14 +541,15 @@ namespace SlugTemplate
                                 self.Grab(obj, freehand, 0, Creature.Grasp.Shareability.CanNotShare, 0, false, false);
                             }
                         }
-                    } else
+                    }
+                    else
                     {
-                        var freeslot = self.grasps[2] == null ? 2 : self.grasps[3] == null ? 3 : self.grasps[4] == null ? 4 : self.grasps[5] == null ? 5 : -1;
+                        var freeslot = self.grasps[2] == null ? 2 : self.grasps[3] == null ? 3 : self.grasps[4] == null ? 4 : -1;
                         var usedhand = self.grasps[0] != null ? 0 : self.grasps[1] != null ? 1 : -1;
                         var pos = self.bodyChunks[1].pos;
                         if (freeslot != -1 && usedhand != -1)
                         {
-                            (self.graphicsModule as PlayerGraphics).hands[usedhand].absoluteHuntPos = new Vector2(pos.x - 6f + 4f * (freeslot - 2), pos.y);
+                            (self.graphicsModule as PlayerGraphics).hands[usedhand].absoluteHuntPos = new Vector2(pos.x - 6f * (freeslot - 3), pos.y);
                             (self.graphicsModule as PlayerGraphics).hands[usedhand].reachingForObject = true;
                             if (invhold > 10 && self.Grabability(self.grasps[usedhand].grabbed) == Player.ObjectGrabability.OneHand)
                             {
@@ -449,7 +561,8 @@ namespace SlugTemplate
                             }
                         }
                     }
-                } else
+                }
+                else
                 {
                     invhold = 0;
                 }
