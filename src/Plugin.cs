@@ -17,7 +17,6 @@ using System.Runtime.Remoting.Messaging;
 using MoreSlugcats;
 using SlugBase.SaveData;
 using SlugBase.Features;
-using Carlcat;
 
 namespace SlugTemplate
 {
@@ -34,7 +33,7 @@ namespace SlugTemplate
         private RoomCamera camera;
         private RoofTopView.DustpuffSpawner.DustPuff currentDustPuff;
         private ScavengerAbstractAI.ScavengerSquad squad;
-        private Scavenger[] squadMembers;
+        private AbstractCreature[] squadMembers = new AbstractCreature[100];
         private SlugBaseSaveData data;
         public static readonly PlayerKeybind Ability = PlayerKeybind.Register("bvipri.carlcat", "CarlCat", "ability", KeyCode.LeftControl, KeyCode.JoystickButton3);
         public static bool IsPostInit = false;
@@ -65,14 +64,23 @@ namespace SlugTemplate
         {
             orig(self);
             if (self.Broken) return;
-            
+            /*print("iterating data");
+            for (int i = 0; i < squad.members.Count; i++)
+            {
+                if (squad.members[i] != null)
+                {
+                    squadMembers[i] = squad.members[i];
+                }
+            }
+            print("setting data");
+            data.Set<AbstractCreature[]>("Scavengers", squadMembers);*/
         }
 
         private bool Player_CanBeSwallowed(On.Player.orig_CanBeSwallowed orig, Player self, PhysicalObject testObj)
         {
             if (self.slugcatStats.name.ToString() == "carlcat")
             {
-                return false;
+                return false;   
             }
             return orig(self, testObj);
         }
@@ -277,11 +285,16 @@ namespace SlugTemplate
                 data = SaveDataExtension.GetSlugBaseData(self.room.game.GetStorySession.saveState.miscWorldSaveData);
                 squad = new ScavengerAbstractAI.ScavengerSquad(player.abstractCreature);
                 squad.members.Clear();
-                if (data.TryGet<Scavenger[]>("Scavengers", out squadMembers) == true)
+                if (data.TryGet<AbstractCreature[]>("Scavengers", out squadMembers) == true)
                 {
+                    print("found data");
                     for (int i=0; i<squadMembers.Length; i++)
                     {
-                        squad.AddMember(squadMembers[i].abstractCreature);
+                        if (squadMembers[i] != null)
+                        {
+                            print(squadMembers[i].ID);
+                            squad.AddMember(squadMembers[i]);
+                        }
                     }
                 }
             }
