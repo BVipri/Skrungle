@@ -219,7 +219,7 @@ namespace SlugTemplate
         private void Player_NewRoom(On.Player.orig_NewRoom orig, Player self, Room newRoom)
         {
             orig(self, newRoom);
-            if (squad.members.Count > 0)
+            if (self.slugcatStats.name.ToString() == "carlcat" && squad.members.Count > 0)
             {
                 printSquad(squad);
                 if (newRoom.world.region.name.ToString() == squad.members[0].Room.world.region.name.ToString())

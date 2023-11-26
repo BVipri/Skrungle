@@ -1,0 +1,20 @@
+{"frames": {
+
+"HipsA.png":
+{
+	"frame": {"x":0,"y":0,"w":18,"h":22},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":18,"h":22},
+	"sourceSize": {"w":18,"h":22}
+}},
+"meta": {
+	"app": "https://www.codeandweb.com/texturepacker",
+	"version": "1.0",
+	"image": "carlHips.png",
+	"format": "RGBA8888",
+	"size": {"w":18,"h":22},
+	"scale": "1",
+	"smartupdate": "$TexturePacker:SmartUpdate:058031ec292e8b61c9744ae8edbb6cbe:7bd9c236cfd269abdc25bf17d7ec7db5:7397e62143e0d172673061d2a49006a0$"
+}
+}
