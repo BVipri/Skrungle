@@ -30,6 +30,7 @@ namespace SlugTemplate
         private int searchcooldown = 0;
         private int invhold = 0;
         private int eattimer = 0;
+        private bool squadSet = false;
         private RoomCamera camera;
         private RoofTopView.DustpuffSpawner.DustPuff currentDustPuff;
         private ScavengerAbstractAI.ScavengerSquad squad;
@@ -64,16 +65,20 @@ namespace SlugTemplate
         {
             orig(self);
             if (self.Broken) return;
-            /*print("iterating data");
-            for (int i = 0; i < squad.members.Count; i++)
+            print("iterating data");
+            if (player.slugcatStats.name.ToString() == "carlcat" && squadSet == false)
             {
-                if (squad.members[i] != null)
+                for (int i = 0; i < squad.members.Count; i++)
                 {
-                    squadMembers[i] = squad.members[i];
+                    if (squad.members[i] != null)
+                    {
+                        squadMembers.SetValue(squad.members[i], i);
+                    }
                 }
+                print("setting data");
+                squadSet = true;
+                data.Set<AbstractCreature[]>("Scavengers", squadMembers);
             }
-            print("setting data");
-            data.Set<AbstractCreature[]>("Scavengers", squadMembers);*/
         }
 
         private bool Player_CanBeSwallowed(On.Player.orig_CanBeSwallowed orig, Player self, PhysicalObject testObj)
@@ -219,15 +224,19 @@ namespace SlugTemplate
         private void Player_NewRoom(On.Player.orig_NewRoom orig, Player self, Room newRoom)
         {
             orig(self, newRoom);
-            if (self.slugcatStats.name.ToString() == "carlcat" && squad.members.Count > 0)
+            if (self.slugcatStats.name.ToString() == "carlcat")
             {
-                printSquad(squad);
-                if (newRoom.world.region.name.ToString() == squad.members[0].Room.world.region.name.ToString())
+                if (squad.members.Count > 0)
                 {
-                    squad.CommonMovement(self.room.abstractRoom.index, null, false);
-                } else
-                {
-                    squad.Dissolve();
+                    printSquad(squad);
+                    if (newRoom.world.region.name.ToString() == squad.members[0].Room.world.region.name.ToString())
+                    {
+                        squad.CommonMovement(self.room.abstractRoom.index, null, false);
+                    }
+                    else
+                    {
+                        squad.Dissolve();
+                    }
                 }
             }
         }
@@ -282,6 +291,7 @@ namespace SlugTemplate
             if (self.slugcatStats.name.ToString() == "carlcat")
             {
                 self.grasps = new Player.Grasp[5];
+                squadSet = false;
                 data = SaveDataExtension.GetSlugBaseData(self.room.game.GetStorySession.saveState.miscWorldSaveData);
                 squad = new ScavengerAbstractAI.ScavengerSquad(player.abstractCreature);
                 squad.members.Clear();
