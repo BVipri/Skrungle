@@ -1,0 +1,20 @@
+{"frames": {
+
+"TailTexture.png":
+{
+	"frame": {"x":0,"y":0,"w":128,"h":64},
+	"rotated": false,
+	"trimmed": false,
+	"spriteSourceSize": {"x":0,"y":0,"w":128,"h":64},
+	"sourceSize": {"w":128,"h":64}
+}},
+"meta": {
+	"app": "http://www.codeandweb.com/texturepacker",
+	"version": "1.0",
+	"image": "carlTail.png",
+	"format": "RGBA8888",
+	"size": {"w":256,"h":256},
+	"scale": "1",
+	"smartupdate": "$TexturePacker:SmartUpdate:ee778fe8767a44ac61b4097d7c1541e1:207435836903aaed295fc33764719d0d:47cba1e4477c458764740a4e66baaf3e$"
+}
+}
