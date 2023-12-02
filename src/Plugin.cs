@@ -17,6 +17,7 @@ using System.Runtime.Remoting.Messaging;
 using MoreSlugcats;
 using SlugBase.SaveData;
 using SlugBase.Features;
+using System.Drawing.Text;
 
 namespace SlugTemplate
 {
@@ -34,7 +35,7 @@ namespace SlugTemplate
         private RoomCamera camera;
         private RoofTopView.DustpuffSpawner.DustPuff currentDustPuff;
         private ScavengerAbstractAI.ScavengerSquad squad;
-        private AbstractCreature[] squadMembers = new AbstractCreature[100];
+        private String[] squadMembers = new String[100];
         private SlugBaseSaveData data;
         public static readonly PlayerKeybind Ability = PlayerKeybind.Register("bvipri.carlcat", "CarlCat", "ability", KeyCode.LeftControl, KeyCode.JoystickButton3);
         public static bool IsPostInit = false;
@@ -65,19 +66,21 @@ namespace SlugTemplate
         {
             orig(self);
             if (self.Broken) return;
-            print("iterating data");
             if (player.slugcatStats.name.ToString() == "carlcat" && squadSet == false)
             {
+                print("iterating data");
+                squadMembers = new String[squad.members.Count];
                 for (int i = 0; i < squad.members.Count; i++)
                 {
                     if (squad.members[i] != null)
                     {
-                        squadMembers.SetValue(squad.members[i], i);
+                        squadMembers[i] = SaveState.AbstractCreatureToStringStoryWorld(squad.members[i],player.coord);
                     }
                 }
                 print("setting data");
                 squadSet = true;
-                data.Set<AbstractCreature[]>("Scavengers", squadMembers);
+                data.Set<String[]>("Scavengers", squadMembers);
+                print("data set");
             }
         }
 
@@ -295,15 +298,20 @@ namespace SlugTemplate
                 data = SaveDataExtension.GetSlugBaseData(self.room.game.GetStorySession.saveState.miscWorldSaveData);
                 squad = new ScavengerAbstractAI.ScavengerSquad(player.abstractCreature);
                 squad.members.Clear();
-                if (data.TryGet<AbstractCreature[]>("Scavengers", out squadMembers) == true)
+                squad.missionType = ScavengerAbstractAI.ScavengerSquad.MissionID.ProtectCreature;
+                squad.targetCreature = player.abstractCreature;
+                if (data.TryGet<String[]>("Scavengers", out squadMembers) == true)
                 {
                     print("found data");
                     for (int i=0; i<squadMembers.Length; i++)
                     {
                         if (squadMembers[i] != null)
                         {
-                            print(squadMembers[i].ID);
-                            squad.AddMember(squadMembers[i]);
+                            var member = SaveState.AbstractCreatureFromString(self.room.world, squadMembers[i], true);
+                            member.RealizeInRoom();
+                            print(member.ID);
+                            squad.AddMember(member);
+                            print("member added");
                         }
                     }
                 }
@@ -405,13 +413,16 @@ namespace SlugTemplate
                 {
                     for (int i = 0; i < squad.members.Count; i++)
                     {
-                        if (squad.members[i].Room == self.room.abstractRoom)
+                        if (squad.members[i] != null)
                         {
-                            var pos1 = self.mainBodyChunk.pos;
-                            var pos2 = squad.members[i].realizedCreature.mainBodyChunk.pos;
-                            if ((pos1 - pos2).magnitude > 30)
+                            if (squad.members[i].Room == self.room.abstractRoom)
                             {
-                                squad.members[i].abstractAI.SetDestination(self.coord);
+                                var pos1 = self.mainBodyChunk.pos;
+                                var pos2 = squad.members[i].realizedCreature.mainBodyChunk.pos;
+                                if ((pos1 - pos2).magnitude > 30)
+                                {
+                                    squad.members[i].abstractAI.SetDestination(self.coord);
+                                }
                             }
                         }
                     }
