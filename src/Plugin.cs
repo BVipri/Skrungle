@@ -45,7 +45,6 @@ namespace SlugTemplate
             On.RainWorld.OnModsInit += Extras.WrapInit(LoadResources);
 
             // Put your custom hooks here!
-            On.Player.Jump += Player_Jump;
             On.Player.Update += Player_Update;
             On.Player.InitiateGraphicsModule += Player_InitiateGraphicsModule;
             On.Player.Grabability += Player_Grabability;
@@ -68,7 +67,6 @@ namespace SlugTemplate
             if (self.Broken) return;
             if (player.slugcatStats.name.ToString() == "carlcat" && squadSet == false)
             {
-                print("iterating data");
                 squadMembers = new String[squad.members.Count];
                 for (int i = 0; i < squad.members.Count; i++)
                 {
@@ -77,10 +75,8 @@ namespace SlugTemplate
                         squadMembers[i] = SaveState.AbstractCreatureToStringStoryWorld(squad.members[i],player.coord);
                     }
                 }
-                print("setting data");
                 squadSet = true;
                 data.Set<String[]>("Scavengers", squadMembers);
-                print("data set");
             }
         }
 
@@ -300,18 +296,19 @@ namespace SlugTemplate
                 squad.members.Clear();
                 squad.missionType = ScavengerAbstractAI.ScavengerSquad.MissionID.ProtectCreature;
                 squad.targetCreature = player.abstractCreature;
+                self.room.world.scavengersWorldAI.playerAssignedSquads.Add(squad);
                 if (data.TryGet<String[]>("Scavengers", out squadMembers) == true)
                 {
-                    print("found data");
                     for (int i=0; i<squadMembers.Length; i++)
                     {
                         if (squadMembers[i] != null)
                         {
                             var member = SaveState.AbstractCreatureFromString(self.room.world, squadMembers[i], true);
                             member.RealizeInRoom();
-                            print(member.ID);
                             squad.AddMember(member);
-                            print("member added");
+                            AbstractSpear obj = new AbstractSpear(self.room.world, null, member.realizedCreature.coord, self.room.world.game.GetNewID(), false);
+                            self.room.abstractRoom.AddEntity(obj);
+                            obj.RealizeInRoom();
                         }
                     }
                 }
@@ -356,77 +353,36 @@ namespace SlugTemplate
         private void Player_Update(On.Player.orig_Update orig, Player self, bool eu)
         {
             orig(self, eu);
-
-            // Check what slugcat
-            if (self.slugcatStats.name.ToString() == "skrungle") // is skrungle
-            {
-                if (self.input[0].AnyDirectionalInput) // Activate velocity boosts
-                {
-                    // make sure that vile creature is behaving
-                    if (
-                        self.bodyMode != Player.BodyModeIndex.Crawl &&
-                        self.bodyMode != Player.BodyModeIndex.Dead &&
-                        self.bodyMode != Player.BodyModeIndex.Stand &&
-                        self.bodyMode != Player.BodyModeIndex.Stunned &&
-                        self.bodyMode != Player.BodyModeIndex.ClimbingOnBeam &&
-                        self.bodyMode != Player.BodyModeIndex.ClimbIntoShortCut &&
-                        self.bodyMode != Player.BodyModeIndex.CorridorClimb &&
-                        self.bodyMode != Player.BodyModeIndex.WallClimb
-                        )
-                    {
-                        // variables
-                        float velMultX = 1.05f;
-                        float velMultY = 1.05f;
-                        var room = self.room;
-                        var pos = self.mainBodyChunk.pos;
-                        var vel = self.mainBodyChunk.vel;
-
-                        if (cloudcooldown <= 0)
-                        {
-                            cloudcooldown = 15;
-
-                            // visual
-                            Smoke.FireSmoke smoke = new FireSmoke(room);
-                            room.AddObject(smoke);
-                            room.PlaySound(SoundID.Cyan_Lizard_Small_Jump, pos, 1f, 0.5f + UnityEngine.Random.value * 0.5f);
-                            for (int i = 1; i < 10; i++)
-                            {
-                                smoke.EmitSmoke(pos, vel * UnityEngine.Random.value * 1.5f, new Color(3f, 4f, 0.5f), 20);
-                            }
-                        }
-                        else
-                        {
-                            cloudcooldown -= 1;
-                        }
-
-                        // velocity
-                        self.mainBodyChunk.vel = new Vector2(vel.x * velMultX, vel.y * velMultY);
-                    }
-                }
-            }
-            else if (self.slugcatStats.name.ToString() == "carlcat") // is carlcat
+            if (self.slugcatStats.name.ToString() == "carlcat") // is carlcat
             {
                 UpdateGrabs(self);
 
                 // friends!
-                if (squad.members.Count > 0)
+                try
                 {
-                    for (int i = 0; i < squad.members.Count; i++)
+                    if (squad.members.Count > 0)
                     {
-                        if (squad.members[i] != null)
+                        for (int i = 0; i < squad.members.Count; i++)
                         {
-                            if (squad.members[i].Room == self.room.abstractRoom)
+                            if (squad.members[i] != null)
                             {
-                                var pos1 = self.mainBodyChunk.pos;
-                                var pos2 = squad.members[i].realizedCreature.mainBodyChunk.pos;
-                                if ((pos1 - pos2).magnitude > 30)
+                                if (squad.members[i].Room == self.room.abstractRoom)
                                 {
-                                    squad.members[i].abstractAI.SetDestination(self.coord);
+                                    var pos1 = self.mainBodyChunk.pos;
+                                    var pos2 = squad.members[i].realizedCreature.mainBodyChunk.pos;
+                                    if ((pos1 - pos2).magnitude > 30)
+                                    {
+                                        squad.members[i].abstractAI.SetDestination(self.coord);
+                                    }
                                 }
                             }
                         }
                     }
+                } catch(Exception e)
+                {
+                    print("ERROR: " + e.Message);
                 }
+                
 
                 // separate code for eating stuff because i cant put IPlayerEdible on existing objects without exploding :)
                 if (self.input[0].pckp == true)
@@ -621,33 +577,6 @@ namespace SlugTemplate
                 {
                     invhold = 0;
                 }
-            }
-        }
-        private void Player_Jump(On.Player.orig_Jump orig, Player self)
-        {
-            orig(self);
-
-            // Check what slugcat
-            if (self.slugcatStats.name.ToString() == "skrungle") // is skrungle 
-            {
-                // Activate cloud jump
-
-                // variables
-                var room = self.room;
-                var pos = self.mainBodyChunk.pos;
-                var vel = self.mainBodyChunk.vel;
-
-                // visual
-                Smoke.FireSmoke smoke = new Smoke.FireSmoke(room);
-                room.AddObject(smoke);
-                room.PlaySound(SoundID.Cyan_Lizard_Medium_Jump, pos, 0.8f, 0.5f + UnityEngine.Random.value * 0.5f);
-                for (int i = 0; i < 10; i++)
-                {
-                    smoke.EmitSmoke(pos, vel * UnityEngine.Random.value * 0.5f, new Color(4f, 5f, 1f), 20);
-                }
-
-                // velocity
-                self.mainBodyChunk.vel = new Vector2(vel.x, vel.y + 3);
             }
         }
     }
