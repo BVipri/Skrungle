@@ -1,0 +1,12 @@
+﻿{
+  "id": "SS",
+  "for": ["carlcat"],
+  "events": {
+    "generic": [
+      {
+        "event": "playerEnterNeverMet",
+        "texts": ["test"]
+      }
+    ]
+  }
+}

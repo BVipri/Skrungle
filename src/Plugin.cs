@@ -58,13 +58,13 @@ namespace SlugTemplate
             On.Player.ObjectCountsAsFood += Player_ObjectCountsAsFood;
             On.SlugcatStats.NourishmentOfObjectEaten += SlugcatStats_NourishmentOfObjectEaten;
             On.Player.CanBeSwallowed += Player_CanBeSwallowed;
-            On.ShelterDoor.Close += ShelterDoor_Close;
+            On.SaveState.SessionEnded += SaveState_SessionEnded;
         }
 
-        private void ShelterDoor_Close(On.ShelterDoor.orig_Close orig, ShelterDoor self)
+        private void SaveState_SessionEnded(On.SaveState.orig_SessionEnded orig, SaveState self, RainWorldGame game, bool survived, bool newMalnourished)
         {
-            orig(self);
-            if (self.Broken) return;
+            orig(self, game, survived, newMalnourished);
+            if (survived == false) return;
             if (player.slugcatStats.name.ToString() == "carlcat" && squadSet == false)
             {
                 squadMembers = new String[squad.members.Count];
@@ -72,7 +72,7 @@ namespace SlugTemplate
                 {
                     if (squad.members[i] != null)
                     {
-                        squadMembers[i] = SaveState.AbstractCreatureToStringStoryWorld(squad.members[i],player.coord);
+                        squadMembers[i] = SaveState.AbstractCreatureToStringStoryWorld(squad.members[i], player.coord);
                     }
                 }
                 squadSet = true;
